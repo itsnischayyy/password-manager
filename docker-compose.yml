@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: pm-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  backend:
+    container_name: pm-backend
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.backend
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongo
+    env_file:
+      - ./packages/backend/.env
+    environment:
+      # Override the MONGO_URI from the .env file to point to the docker container name
+      - MONGO_URI=mongodb://mongo:27017/password_manager_dev
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot-reloading with nodemon
+      - ./packages/backend/src:/app/packages/backend/src
+    restart: unless-stopped
+
+  frontend:
+    container_name: pm-frontend
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.frontend
+    ports:
+      - "5173:80" # Map host 5173 to container 80 (nginx)
+    env_file:
+      - ./packages/frontend/.env
+    environment:
+      # This setup serves a built version of the frontend.
+      # For a hot-reloading dev experience, you would run the Vite dev server.
+      # This docker-compose is geared towards a production-like local setup.
+      # To enable Vite's HMR, you'd change the command in the Dockerfile.
+      # For now, this is simpler and tests the production build.
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

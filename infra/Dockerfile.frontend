@@ -1,0 +1,33 @@
+# ---- Base Stage ----
+FROM node:20-alpine AS base
+WORKDIR /app
+RUN npm install -g pnpm@8
+
+# ---- Dependencies Stage ----
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/frontend/package.json ./packages/frontend/
+COPY packages/backend/package.json ./packages/backend/
+RUN pnpm install
+
+# ---- Build Stage ----
+FROM base AS builder
+WORKDIR /app
+# First, copy the installed dependencies from the 'deps' stage
+COPY --from=deps /app/node_modules ./node_modules
+# Then, copy the source code
+COPY . .
+
+# Set the API URL for the build.
+ARG VITE_API_BASE_URL=/api/v1
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+# Run the build script.
+RUN pnpm --filter frontend build
+
+# ---- Production Stage ----
+FROM nginx:1.25-alpine AS production
+COPY --from=builder /app/packages/frontend/dist /usr/share/nginx/html
+COPY infra/nginx/default.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

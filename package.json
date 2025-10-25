@@ -1,0 +1,19 @@
+{
+  "name": "enterprise-password-manager-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "pnpm install",
+    "dev": "docker-compose up --build",
+    "dev:logs": "docker-compose logs -f",
+    "stop": "docker-compose down",
+    "build": "pnpm --filter \"./packages/**\" build",
+    "test": "pnpm --filter \"./packages/**\" test",
+    "lint": "pnpm --filter \"./packages/**\" lint",
+    "docker:build": "docker-compose build",
+    "docker:down": "docker-compose down -v --remove-orphans"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
