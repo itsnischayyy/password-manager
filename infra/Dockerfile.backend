@@ -2,6 +2,8 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN npm install -g pnpm@8
+# Add the node_modules/.bin to the PATH
+ENV PATH /app/node_modules/.bin:$PATH
 
 # ---- Dependencies Stage ----
 FROM base AS deps
@@ -9,17 +11,16 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/backend/package.json ./packages/backend/
-RUN pnpm install
+RUN pnpm install --shamefully-hoist
 
 # ---- Build Stage ----
 FROM base AS builder
 WORKDIR /app
-# First, copy the installed dependencies from the 'deps' stage
+# Copy installed dependencies and source code.
 COPY --from=deps /app/node_modules ./node_modules
-# Then, copy the source code
 COPY . .
 
-# Run the build script.
+# Run the build script. 'tsc' will be found in the PATH.
 RUN pnpm --filter backend build
 
 # ---- Production Stage ----

@@ -2,6 +2,8 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN npm install -g pnpm@8
+# Add the node_modules/.bin to the PATH
+ENV PATH /app/node_modules/.bin:$PATH
 
 # ---- Dependencies Stage ----
 FROM base AS deps
@@ -9,20 +11,21 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/backend/package.json ./packages/backend/
-RUN pnpm install
+# We use --shamefully-hoist in monorepos inside Docker to ensure binaries are predictably located at the top level.
+# This is a common pattern to solve PATH issues like the one you're seeing.
+RUN pnpm install --shamefully-hoist
 
 # ---- Build Stage ----
 FROM base AS builder
 WORKDIR /app
-# First, copy the installed dependencies from the 'deps' stage
+# Copy installed dependencies and source code.
 COPY --from=deps /app/node_modules ./node_modules
-# Then, copy the source code
 COPY . .
 
 # Set the API URL for the build.
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-# Run the build script.
+# Run the build script. Now 'tsc' and 'vite' will be found in the PATH.
 RUN pnpm --filter frontend build
 
 # ---- Production Stage ----

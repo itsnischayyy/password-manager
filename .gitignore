@@ -6,19 +6,21 @@ node_modules
 dist
 build
 .turbo
+packages/frontend/dist
+packages/backend/dist
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 
-# Environment variables
+# Environment variables (NEVER commit secrets)
 .env
-.env.*.local
-.env.local
-!/.env.example
+.env.*
+packages/backend/.env
+packages/frontend/.env
+!*.env.example
 
 # OS-specific
 .DS_Store
@@ -27,8 +29,3 @@ Thumbs.db
 # IDE configuration
 .idea
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
