@@ -2,7 +2,6 @@
 FROM node:20-alpine AS base
 WORKDIR /app
 RUN npm install -g pnpm@8
-# Add the node_modules/.bin to the PATH
 ENV PATH /app/node_modules/.bin:$PATH
 
 # ---- Dependencies Stage ----
@@ -16,23 +15,25 @@ RUN pnpm install --shamefully-hoist
 # ---- Build Stage ----
 FROM base AS builder
 WORKDIR /app
-# Copy installed dependencies and source code.
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Run the build script. 'tsc' will be found in the PATH.
-RUN pnpm --filter backend build
+RUN pnpm --filter backend build && pnpm --filter backend exec tsc-alias
 
 # ---- Production Stage ----
-FROM base AS production
+FROM node:20-alpine
 WORKDIR /app
+ENV NODE_ENV=production
+
+# Copy necessary monorepo config files and install production dependencies
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/backend/package.json ./packages/backend/
+RUN npm install -g pnpm@8 && \
+    pnpm install --prod --filter=backend
+
+# Copy the built and alias-resolved backend code from the builder stage
 COPY --from=builder /app/packages/backend/dist ./packages/backend/dist
-COPY --from=builder /app/packages/backend/package.json ./packages/backend/package.json
 COPY --from=builder /app/packages/backend/OPENAPI.yaml ./packages/backend/OPENAPI.yaml
-COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/pnpm-lock.yaml ./
-# Re-install only production dependencies.
-RUN pnpm install --prod --filter backend
 
 EXPOSE 5001
-CMD ["pnpm", "--dir=./packages/backend", "start"]
+
+CMD ["node", "--enable-source-maps", "packages/backend/dist/server.js"]
