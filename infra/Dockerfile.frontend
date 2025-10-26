@@ -17,25 +17,28 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# We don't hardcode the API URL. It will be proxied by Nginx.
+
+# --- THIS SECTION IS THE FIX ---
+# 1. Declare a build argument that we can pass from the outside (e.g., from Render).
+ARG VITE_API_BASE_URL=/api/v1
+
+# 2. Set this argument as an environment variable *for the build command only*.
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
+# 3. Verify the value during the build process.
+RUN echo "Building frontend with API Base URL: ${VITE_API_BASE_URL}"
+
+# 4. Run the build script. Vite will now use this environment variable.
 RUN pnpm --filter frontend build
+# --- END OF FIX SECTION ---
+
 
 # ---- Production Stage ----
 FROM nginx:1.25-alpine
-
-# Install `envsubst` which is part of the `gettext` package
 RUN apk add --no-cache gettext
-
 COPY --from=builder /app/packages/frontend/dist /usr/share/nginx/html
-
-# Copy the template and the startup script
 COPY infra/nginx/default.conf.template /etc/nginx/conf.d/default.conf.template
 COPY infra/start-frontend.sh /start-frontend.sh
-
-# Make the script executable
 RUN chmod +x /start-frontend.sh
-
 EXPOSE 80
-
-# The CMD now runs the startup script.
 CMD ["/start-frontend.sh"]
